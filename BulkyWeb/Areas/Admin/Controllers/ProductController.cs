@@ -18,10 +18,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
     {
         public IActionResult Index()
         {
-            var products = _unitOfWork.ProductRepository.GetAll(p => p.Category);
-
-
-            return View(products);
+          return View();
         }
 
         [HttpGet]

@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading;
 using System.Threading.Tasks;
+using Bulky.DataAccess.Repository.IRepository;
 using Bulky.Models;
 using Bulky.Utility;
 using Microsoft.AspNetCore.Authentication;
@@ -34,6 +35,7 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IUnitOfWork _unitOfWork;
 
         public RegisterModel(
             UserManager<IdentityUser> userManager,
@@ -41,7 +43,8 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             SignInManager<IdentityUser> signInManager,
             ILogger<RegisterModel> logger,
             IEmailSender emailSender,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole> roleManager,
+            IUnitOfWork unitOfWork)
         {
             _userManager = userManager;
             _userStore = userStore;
@@ -50,6 +53,7 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             _logger = logger;
             _emailSender = emailSender;
             _roleManager = roleManager;
+            _unitOfWork = unitOfWork;
         }
 
         /// <summary>
@@ -110,12 +114,16 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             [ValidateNever]
             public IEnumerable<SelectListItem> RoleList { get; set; }
 
+            [ValidateNever]
+            public IEnumerable<SelectListItem> CompanyList { get; set; }
+
             [Required]
             public string Name { get; set; } = null!;
             public string StreetAddress { get; set; }
             public string City { get; set; }
             public string State { get; set; }
             public string PostalCode { get; set; }
+            public int? CompanyId { get; set; }
         }
 
 
@@ -132,7 +140,14 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
 
             Input = new InputModel()
             {
-                RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name })
+                RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name }),
+
+                CompanyList = _unitOfWork.CompanyRepository.GetAll()
+                                                            .Select(c => new SelectListItem
+                                                            {
+                                                                Text = c.Name,
+                                                                Value = c.Id.ToString()
+                                                            }).ToList()
             };
 
             ReturnUrl = returnUrl;
@@ -150,6 +165,12 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
                 user.Name = Input.Name;
+                user.CompanyId = Input.CompanyId;
+                user.StreetAddress = Input.StreetAddress;
+                user.City = Input.City;
+                user.State = Input.State;
+                user.PostalCode = Input.PostalCode;
+
 
                 var result = await _userManager.CreateAsync(user, Input.Password);
 
@@ -192,6 +213,13 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             }
 
             Input.RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name });
+
+            Input.CompanyList = _unitOfWork.CompanyRepository.GetAll()
+                                                           .Select(c => new SelectListItem
+                                                           {
+                                                               Text = c.Name,
+                                                               Value = c.Id.ToString()
+                                                           }).ToList();
 
             // If we got this far, something failed, redisplay form
             return Page();

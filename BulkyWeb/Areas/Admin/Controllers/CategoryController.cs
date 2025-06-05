@@ -1,4 +1,5 @@
-﻿using Bulky.DataAccess.Repository.IRepository;
+﻿using Bulky.DataAccess.Repository;
+using Bulky.DataAccess.Repository.IRepository;
 using Bulky.Models;
 using Bulky.Utility;
 using BulkyWeb.Data;
@@ -8,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BulkyWeb.Areas.Admin.Controllers
 {
     [Area("Admin")]
-    [Authorize(SD.Role_Admin)]
+    [Authorize(Roles = SD.Role_Admin)]
     public class CategoryController(IUnitOfWork unitOfWork) : Controller
     {
       
@@ -85,6 +86,8 @@ namespace BulkyWeb.Areas.Admin.Controllers
             TempData["success"] = "Category is deleted successfully";
             return RedirectToAction("Index");
         }
+
+       
 
     }
 }
