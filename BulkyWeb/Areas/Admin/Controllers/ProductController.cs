@@ -1,5 +1,5 @@
 ﻿using Bulky.DataAccess.Repository;
-using Bulky.DataAccess.Repository.IRepository;
+using Bulky.DataAccess.Repository.IRepositories;
 using Bulky.Models;
 using Bulky.Models.ViewModels;
 using Bulky.Utility;
@@ -25,7 +25,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
 
         public IActionResult Upsert(int? Id)
         {
-            IEnumerable<SelectListItem> Categories = _unitOfWork.CategoryRepository.GetAll().Select(
+            IEnumerable<SelectListItem> Categories = _unitOfWork.GetRepository<Category>().GetAll().Select(
               cat => new SelectListItem()
               {
                   Text = cat.Name,
@@ -40,7 +40,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
 
             if (Id != null || Id > 0)
             {
-                var product = _unitOfWork.ProductRepository.Get(prod => prod.Id == Id);
+                var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == Id);
                 if (product == null)
                 {
                     return NotFound();
@@ -53,11 +53,11 @@ namespace BulkyWeb.Areas.Admin.Controllers
         }
 
         [HttpPost]
-        public IActionResult Upsert(ProductVM productVM, IFormFile? file)
+        public async Task<IActionResult> Upsert(ProductVM productVM, IFormFile? file)
         {
             if (!ModelState.IsValid)
             {
-                IEnumerable<SelectListItem> Categories = _unitOfWork.CategoryRepository.GetAll().Select(
+                IEnumerable<SelectListItem> Categories = _unitOfWork.GetRepository<Category>().GetAll().Select(
                 cat => new SelectListItem()
                 {
                     Text = cat.Name,
@@ -73,7 +73,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
                 else
                     productVM.Product.ImageUrl = "PlaceHolder.png";
 
-                _unitOfWork.ProductRepository.Add(productVM.Product);
+                _unitOfWork.GetRepository<Product>().Add(productVM.Product);
 
                 TempData["success"] = "Product created successfully";
             }
@@ -85,10 +85,10 @@ namespace BulkyWeb.Areas.Admin.Controllers
                     attachmentService.Delete(path);
                     productVM.Product.ImageUrl = attachmentService.Upload(file, "Images\\Products")!;
                 }
-                _unitOfWork.ProductRepository.Update(productVM.Product);
+                _unitOfWork.GetRepository<Product>().Update(productVM.Product);
                 TempData["success"] = "Product updated successfully";
             }
-            _unitOfWork.Save();
+            await _unitOfWork.SaveChangesAsync();
             return RedirectToAction("Index");
         }
      
@@ -97,16 +97,16 @@ namespace BulkyWeb.Areas.Admin.Controllers
         [HttpGet]
         public IActionResult GetAll()
         {
-            var products = _unitOfWork.ProductRepository.GetAll(p => p.Category);
+            var products = _unitOfWork.GetRepository<Product>().GetAll(p => p.Category);
             return Json(new { data = products });
         }
 
 
         [HttpDelete]
-        public IActionResult Delete(int? Id)
+        public async Task<IActionResult> Delete(int? Id)
         {
 
-            var product = _unitOfWork.ProductRepository.Get(prod => prod.Id == Id);
+            var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == Id);
 
             if (product == null)
                 return Json(new { success = false, message = "Error while deleting" });
@@ -114,8 +114,8 @@ namespace BulkyWeb.Areas.Admin.Controllers
             string path = Path.Combine("Images\\Products", product.ImageUrl);
             attachmentService.Delete(path);
 
-            _unitOfWork.ProductRepository.Remove(product);
-            _unitOfWork.Save();
+            _unitOfWork.GetRepository<Product>().Remove(product);
+            await _unitOfWork.SaveChangesAsync();
 
             return Json(new { success = true, message = "Delete Successful" });
 

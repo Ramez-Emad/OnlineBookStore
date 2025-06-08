@@ -10,7 +10,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading;
 using System.Threading.Tasks;
-using Bulky.DataAccess.Repository.IRepository;
+using Bulky.DataAccess.Repository.IRepositories;
 using Bulky.Models;
 using Bulky.Utility;
 using Microsoft.AspNetCore.Authentication;
@@ -142,7 +142,7 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             {
                 RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name }),
 
-                CompanyList = _unitOfWork.CompanyRepository.GetAll()
+                CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
                                                             .Select(c => new SelectListItem
                                                             {
                                                                 Text = c.Name,
@@ -214,7 +214,7 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
 
             Input.RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name });
 
-            Input.CompanyList = _unitOfWork.CompanyRepository.GetAll()
+            Input.CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
                                                            .Select(c => new SelectListItem
                                                            {
                                                                Text = c.Name,

@@ -1,4 +1,4 @@
-﻿using Bulky.DataAccess.Repository.IRepository;
+﻿using Bulky.DataAccess.Repository.IRepositories;
 using Bulky.Models;
 using StackExchange.Redis;
 using System.Text.Json;

@@ -1,4 +1,4 @@
-﻿using Bulky.DataAccess.Repository.IRepository;
+﻿using Bulky.DataAccess.Repository.IRepositories;
 using BulkyWeb.Data;
 using Microsoft.EntityFrameworkCore;
 using System;

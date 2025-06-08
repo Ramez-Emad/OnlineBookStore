@@ -1,4 +1,4 @@
-﻿using Bulky.DataAccess.Repository.IRepository;
+﻿using Bulky.DataAccess.Repository.IRepositories;
 using Bulky.Models;
 using Bulky.Utility;
 using Microsoft.AspNetCore.Authorization;
@@ -28,7 +28,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
             else
             {
                 //update
-                var companyObj = _unitOfWork.CompanyRepository.Get(u => u.Id == id);
+                var companyObj = _unitOfWork.GetRepository<Company>().Get(u => u.Id == id);
                 if (companyObj == null)
                 {
                     return NotFound();
@@ -39,21 +39,21 @@ namespace BulkyWeb.Areas.Admin.Controllers
         }
 
         [HttpPost]
-        public IActionResult Upsert(Company CompanyObj)
+        public async Task<IActionResult> Upsert(Company CompanyObj)
         {
             if (ModelState.IsValid)
             {
 
                 if (CompanyObj.Id == 0)
                 {
-                    _unitOfWork.CompanyRepository.Add(CompanyObj);
+                    _unitOfWork.GetRepository<Company>().Add(CompanyObj);
                 }
                 else
                 {
-                    _unitOfWork.CompanyRepository.Update(CompanyObj);
+                    _unitOfWork.GetRepository<Company>().Update(CompanyObj);
                 }
 
-                _unitOfWork.Save();
+                await _unitOfWork.SaveChangesAsync();
                 TempData["success"] = "Company created successfully";
                 return RedirectToAction("Index");
             }
@@ -69,21 +69,21 @@ namespace BulkyWeb.Areas.Admin.Controllers
         [HttpGet]
         public IActionResult GetAll()
         {
-            var companies = _unitOfWork.CompanyRepository.GetAll();
+            var companies = _unitOfWork.GetRepository<Company>().GetAll();
             return Json(new { data = companies });
         }
 
         [HttpDelete]
-        public IActionResult Delete(int? id)
+        public async Task<IActionResult> Delete(int? id)
         {
-            var CompanyToBeDeleted = _unitOfWork.CompanyRepository.Get(u => u.Id == id);
+            var CompanyToBeDeleted = _unitOfWork.GetRepository<Company>().Get(u => u.Id == id);
             if (CompanyToBeDeleted == null)
             {
                 return Json(new { success = false, message = "Error while deleting" });
             }
 
-            _unitOfWork.CompanyRepository.Remove(CompanyToBeDeleted);
-            _unitOfWork.Save();
+            _unitOfWork.GetRepository<Company>().Remove(CompanyToBeDeleted);
+            await _unitOfWork.SaveChangesAsync();
 
             return Json(new { success = true, message = "Delete Successful" });
         }

@@ -1,5 +1,5 @@
 using Bulky.DataAccess.Repository;
-using Bulky.DataAccess.Repository.IRepository;
+using Bulky.DataAccess.Repository.IRepositories;
 using Bulky.Utility.Attachments;
 using BulkyWeb.Data;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +33,7 @@ namespace BulkyWeb
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<IAttachmentService, AttachmentService>();
             builder.Services.AddScoped<IEmailSender, EmailSender>();
+            builder.Services.AddScoped<ICartRepository, CartRepository>();
 
             builder.Services.AddSingleton<IConnectionMultiplexer>((_) =>
             {

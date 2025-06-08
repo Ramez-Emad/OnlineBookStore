@@ -1,5 +1,5 @@
 ﻿using Bulky.DataAccess.Repository;
-using Bulky.DataAccess.Repository.IRepository;
+using Bulky.DataAccess.Repository.IRepositories;
 using Bulky.Models;
 using Bulky.Utility;
 using BulkyWeb.Data;
@@ -15,7 +15,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
       
         public IActionResult Index()
         {
-            var categories = unitOfWork.CategoryRepository.GetAll();
+            var categories = unitOfWork.GetRepository<Category>().GetAll();
             return View(categories);
         }
 
@@ -25,14 +25,14 @@ namespace BulkyWeb.Areas.Admin.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create(Category category)
+        public async Task<IActionResult> Create(Category category)
         {
             if (!ModelState.IsValid)
             {
                 return View(category);
             }
-            unitOfWork.CategoryRepository.Add(category);
-            unitOfWork.Save();
+            unitOfWork.GetRepository<Category>().Add(category);
+            await unitOfWork.SaveChangesAsync();
             TempData["success"] = "Category is created successfully";
             return RedirectToAction("Index");
         }
@@ -41,21 +41,21 @@ namespace BulkyWeb.Areas.Admin.Controllers
         {
             if (Id == null || Id <= 0)
                 return NotFound();
-            var category = unitOfWork.CategoryRepository.Get(cat => cat.Id == Id);
+            var category = unitOfWork.GetRepository<Category>().Get(cat => cat.Id == Id);
             if (category == null)
                 return NotFound();
             return View(category);
         }
 
         [HttpPost]
-        public IActionResult Edit(Category category)
+        public async Task<IActionResult> Edit(Category category)
         {
             if (!ModelState.IsValid)
             {
                 return View(category);
             }
-            unitOfWork.CategoryRepository.Update(category);
-            unitOfWork.Save();
+            unitOfWork.GetRepository<Category>().Update(category);
+            await unitOfWork.SaveChangesAsync();
             TempData["success"] = "Category is updated successfully";
             return RedirectToAction("Index");
         }
@@ -65,7 +65,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
             if (Id == null || Id <= 0)
                 return NotFound();
 
-            var category = unitOfWork.CategoryRepository.Get(cat => cat.Id == Id);
+            var category = unitOfWork.GetRepository<Category>().Get(cat => cat.Id == Id);
 
             if (category == null)
                 return NotFound();
@@ -74,15 +74,15 @@ namespace BulkyWeb.Areas.Admin.Controllers
         }
 
         [HttpPost , ActionName("Delete")]
-        public IActionResult DeletePost(int? Id)
+        public async Task<IActionResult> DeletePost(int? Id)
         {
-            var category = unitOfWork.CategoryRepository.Get(cat => cat.Id == Id);
+            var category = unitOfWork.GetRepository<Category>().Get(cat => cat.Id == Id);
 
             if (category == null)
                 return NotFound();
 
-            unitOfWork.CategoryRepository.Remove(category);
-            unitOfWork.Save();
+            unitOfWork.GetRepository<Category>().Remove(category);
+            await unitOfWork.SaveChangesAsync();
             TempData["success"] = "Category is deleted successfully";
             return RedirectToAction("Index");
         }

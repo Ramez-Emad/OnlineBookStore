@@ -1,5 +1,6 @@
-﻿using Bulky.DataAccess.Repository.IRepository;
+﻿using Bulky.DataAccess.Repository.IRepositories;
 using BulkyWeb.Data;
+using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
@@ -9,29 +10,29 @@ using System.Threading.Tasks;
 
 namespace Bulky.DataAccess.Repository
 {
-    public class UnitOfWork : IUnitOfWork
+    public class UnitOfWork(ApplicationDbContext _dbContext) : IUnitOfWork
     {
-        private readonly ApplicationDbContext _db;
+       
 
-        public ICategoryRepository CategoryRepository { get; private set; }
+        private readonly Dictionary<string, object> _repositories = [];
 
-        public IProductRepository ProductRepository { get; private set; }
-
-        public ICompanyRepository CompanyRepository { get; private set; }
-
-        public ICartRepository CartRepository { get; private set; }
-
-        public UnitOfWork(ApplicationDbContext db , IConnectionMultiplexer connectionMultiplexer)
+        public IRepository<T> GetRepository<T>() where T : class
         {
-            CategoryRepository = new CategoryRepository(db);
-            ProductRepository = new ProductRepository(db);
-            CompanyRepository = new CompanyRepository(db);
-            CartRepository = new CartRepository(connectionMultiplexer);
-            _db = db;
+            var TypeName = typeof(T).Name;
+
+            if (_repositories.ContainsKey(TypeName))
+            {
+                return (IRepository<T>)_repositories[TypeName];
+            }
+
+            var Object = new Repository<T>(_dbContext);
+
+            _repositories[TypeName] = Object;
+
+            return Object;
         }
-        public void Save()
-        {
-            _db.SaveChanges();
-        }
+
+        public async Task<int> SaveChangesAsync() => await _dbContext.SaveChangesAsync();
+
     }
 }

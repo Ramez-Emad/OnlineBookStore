@@ -1,4 +1,4 @@
-﻿using Bulky.DataAccess.Repository.IRepository;
+﻿using Bulky.DataAccess.Repository.IRepositories;
 using Bulky.Models;
 using Bulky.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -12,15 +12,17 @@ namespace BulkyWeb.Areas.Customer.Controllers
     public class CartController : Controller
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICartRepository _cartRepository;
 
-        public CartController(IUnitOfWork unitOfWork)
+        public CartController(IUnitOfWork unitOfWork , ICartRepository cartRepository)
         {
             _unitOfWork = unitOfWork;
+            _cartRepository = cartRepository;
         }
         public async Task<IActionResult> Index()
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _unitOfWork.CartRepository.GetCartAsync(userId!);
+            var cart = await _cartRepository.GetCartAsync(userId!);
             if (cart == null)
             {
                 cart = new Cart
@@ -35,7 +37,7 @@ namespace BulkyWeb.Areas.Customer.Controllers
         public async Task<IActionResult> Minus(int Id)
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _unitOfWork.CartRepository.GetCartAsync(userId!);
+            var cart = await _cartRepository.GetCartAsync(userId!);
 
             if (cart != null)
             {
@@ -49,7 +51,7 @@ namespace BulkyWeb.Areas.Customer.Controllers
                     {
                         item.Quantity--;
 
-                        var product = _unitOfWork.ProductRepository.Get(prod => prod.Id == item.ProductId);
+                        var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == item.ProductId);
                         if (product != null)
                             item.Price = GetPrice(product, item.Quantity);
 
@@ -62,13 +64,13 @@ namespace BulkyWeb.Areas.Customer.Controllers
                         cart.Items.Remove(item);
                         if (cart.Items.Count == 0)
                         {
-                            await _unitOfWork.CartRepository.DeleteCartAsync(userId!);
+                            await _cartRepository.DeleteCartAsync(userId!);
                             return RedirectToAction("Index");
 
                         }
                     }
                 }
-                await _unitOfWork.CartRepository.CreateOrUpdateCartAsync(cart);
+                await _cartRepository.CreateOrUpdateCartAsync(cart);
 
             }
 
@@ -79,7 +81,7 @@ namespace BulkyWeb.Areas.Customer.Controllers
         public async Task<IActionResult> Plus(int Id)
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _unitOfWork.CartRepository.GetCartAsync(userId!);
+            var cart = await _cartRepository.GetCartAsync(userId!);
 
             if (cart != null)
             {
@@ -91,14 +93,14 @@ namespace BulkyWeb.Areas.Customer.Controllers
 
                     item.Quantity++;
 
-                    var product =  _unitOfWork.ProductRepository.Get(prod=> prod.Id == item.ProductId);
+                    var product =  _unitOfWork.GetRepository<Product>().Get(prod=> prod.Id == item.ProductId);
                     if (product != null)
                         item.Price = GetPrice(product, item.Quantity);
 
                     cart.TotalCost += (item.Price * item.Quantity);
 
                 }
-                await _unitOfWork.CartRepository.CreateOrUpdateCartAsync(cart);
+                await _cartRepository.CreateOrUpdateCartAsync(cart);
             }
 
             return RedirectToAction("Index");
@@ -107,7 +109,7 @@ namespace BulkyWeb.Areas.Customer.Controllers
         public async Task<IActionResult> Delete(int Id)
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _unitOfWork.CartRepository.GetCartAsync(userId!);
+            var cart = await _cartRepository.GetCartAsync(userId!);
 
             if (cart != null)
             {
@@ -119,12 +121,12 @@ namespace BulkyWeb.Areas.Customer.Controllers
                     cart.Items.Remove(item);
                     if (cart.Items.Count == 0)
                     {
-                        await _unitOfWork.CartRepository.DeleteCartAsync(userId!);
+                        await _cartRepository.DeleteCartAsync(userId!);
                         return RedirectToAction("Index");
 
                     }
                 }
-                await _unitOfWork.CartRepository.CreateOrUpdateCartAsync(cart);
+                await _cartRepository.CreateOrUpdateCartAsync(cart);
             }
             return RedirectToAction("Index");
         }
