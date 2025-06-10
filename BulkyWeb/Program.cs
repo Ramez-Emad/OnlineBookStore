@@ -8,6 +8,7 @@ using Bulky.Utility;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using StackExchange.Redis;
 using System.Configuration;
+using Stripe;
 
 namespace BulkyWeb
 {
@@ -26,7 +27,8 @@ namespace BulkyWeb
                     )
                 );
 
-    
+            builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+
             builder.Services.AddIdentity<IdentityUser , IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultUI().AddDefaultTokenProviders();
 
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
@@ -52,7 +54,7 @@ namespace BulkyWeb
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
-
+            StripeConfiguration.ApiKey = builder.Configuration.GetSection("Stripe:SecretKey").Get<string>();
             app.UseRouting();
 
             app.UseAuthentication();

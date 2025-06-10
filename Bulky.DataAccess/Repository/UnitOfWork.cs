@@ -1,10 +1,12 @@
 ﻿using Bulky.DataAccess.Repository.IRepositories;
 using BulkyWeb.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -25,11 +27,27 @@ namespace Bulky.DataAccess.Repository
                 return (IRepository<T>)_repositories[TypeName];
             }
 
-            var Object = new Repository<T>(_dbContext);
+            // Naming convention: Product => ProductRepository
+            var repoTypeName = $"{TypeName}Repository";
+            var repoType = Assembly.GetExecutingAssembly()
+                                   .GetTypes()
+                                   .FirstOrDefault(t =>
+                                       t.Name.Equals(repoTypeName, StringComparison.OrdinalIgnoreCase) &&
+                                       typeof(IRepository<T>).IsAssignableFrom(t));
 
-            _repositories[TypeName] = Object;
+            IRepository<T> repositoryInstance;
 
-            return Object;
+            if (repoType != null)
+            {
+                repositoryInstance = (IRepository<T>)Activator.CreateInstance(repoType, _dbContext)!;
+            }
+            else
+            {
+                repositoryInstance = new Repository<T>(_dbContext);
+            }
+
+            _repositories[TypeName] = repositoryInstance;
+            return repositoryInstance;
         }
 
         public async Task<int> SaveChangesAsync() => await _dbContext.SaveChangesAsync();
