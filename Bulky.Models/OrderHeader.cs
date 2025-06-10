@@ -13,8 +13,10 @@ namespace Bulky.Models
     {
         public int Id { get; set; }
         public string ApplicationUserId { get; set; } = default!;
+        [ForeignKey("ApplicationUserId")]
+        [ValidateNever]
+        public ApplicationUser ApplicationUser { get; set; } = default!;
 
-      
         public DateTime OrderDate { get; set; }
         public DateTime ShippingDate { get; set; }
         public double OrderTotal { get; set; }
