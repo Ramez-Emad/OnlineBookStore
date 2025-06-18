@@ -6,4 +6,19 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Bulky.DataAccess\Bulky.DataAccess.csproj" />
+    <ProjectReference Include="..\Bulky.Utility\Bulky.Utility.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\Carts\" />
+    <Folder Include="Models\Orders\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="14.0.0" />
+    <PackageReference Include="Stripe.net" Version="48.2.0" />
+  </ItemGroup>
+
 </Project>

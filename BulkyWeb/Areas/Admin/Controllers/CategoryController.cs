@@ -1,8 +1,6 @@
-﻿using Bulky.DataAccess.Repository;
-using Bulky.DataAccess.Repository.IRepositories;
-using Bulky.Models;
+﻿using Bulky.BL.Models.Categories;
+using Bulky.BL.Services._ServicesManager;
 using Bulky.Utility;
-using BulkyWeb.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,12 +8,12 @@ namespace BulkyWeb.Areas.Admin.Controllers
 {
     [Area("Admin")]
     [Authorize(Roles = SD.Role_Admin)]
-    public class CategoryController(IUnitOfWork unitOfWork) : Controller
+    public class CategoryController(IServicesManager _servicesManager) : Controller
     {
-      
-        public IActionResult Index()
+
+        public async Task<IActionResult> Index()
         {
-            var categories = unitOfWork.GetRepository<Category>().GetAll();
+            var categories = await _servicesManager.CategoryService.GetAllCategoriesAsync();
             return View(categories);
         }
 
@@ -25,69 +23,62 @@ namespace BulkyWeb.Areas.Admin.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(Category category)
+        public async Task<IActionResult> Create(CategoryDTO category)
         {
             if (!ModelState.IsValid)
             {
                 return View(category);
             }
-            unitOfWork.GetRepository<Category>().Add(category);
-            await unitOfWork.SaveChangesAsync();
-            TempData["success"] = "Category is created successfully";
+
+            var isCreated = await _servicesManager.CategoryService.CreateCategoryAsync(category);
+
+            if(isCreated > 0)
+                TempData["success"] = "Category is created successfully";
+
             return RedirectToAction("Index");
         }
 
-        public IActionResult Edit(int? Id)
+        public async Task<IActionResult> Edit(int? Id)
         {
-            if (Id == null || Id <= 0)
-                return NotFound();
-            var category = unitOfWork.GetRepository<Category>().Get(cat => cat.Id == Id);
-            if (category == null)
-                return NotFound();
+
+            var category = await _servicesManager.CategoryService.GetCategoryByIdAsync(Id);
             return View(category);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Edit(Category category)
+        public async Task<IActionResult> Edit(CategoryDTO category)
         {
             if (!ModelState.IsValid)
             {
                 return View(category);
             }
-            unitOfWork.GetRepository<Category>().Update(category);
-            await unitOfWork.SaveChangesAsync();
-            TempData["success"] = "Category is updated successfully";
+
+            var isUpdated = await _servicesManager.CategoryService.UpdateCategoryAsync(category);
+
+            if(isUpdated > 0)
+                TempData["success"] = "Category is updated successfully";
+
             return RedirectToAction("Index");
         }
 
-        public IActionResult Delete(int? Id)
+        public async Task<IActionResult> Delete(int? Id)
         {
-            if (Id == null || Id <= 0)
-                return NotFound();
-
-            var category = unitOfWork.GetRepository<Category>().Get(cat => cat.Id == Id);
-
-            if (category == null)
-                return NotFound();
+            var category = await _servicesManager.CategoryService.GetCategoryByIdAsync(Id);
 
             return View(category);
         }
 
-        [HttpPost , ActionName("Delete")]
+        [HttpPost, ActionName("Delete")]
         public async Task<IActionResult> DeletePost(int? Id)
         {
-            var category = unitOfWork.GetRepository<Category>().Get(cat => cat.Id == Id);
+            var isDeleted = await _servicesManager.CategoryService.DeleteCategoryAsync(Id);
 
-            if (category == null)
-                return NotFound();
-
-            unitOfWork.GetRepository<Category>().Remove(category);
-            await unitOfWork.SaveChangesAsync();
-            TempData["success"] = "Category is deleted successfully";
+            if (isDeleted)
+            {
+                TempData["success"] = "Category is deleted successfully";
+            }
             return RedirectToAction("Index");
         }
-
-       
 
     }
 }

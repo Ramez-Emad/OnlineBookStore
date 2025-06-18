@@ -5,7 +5,7 @@
 namespace Bulky.DataAccess.Migrations
 {
     /// <inheritdoc />
-    public partial class ExtendIdentityUser : Migration
+    public partial class ExtendApplicationUser : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

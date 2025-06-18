@@ -10,8 +10,8 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading;
 using System.Threading.Tasks;
-using Bulky.DataAccess.Repository.IRepositories;
-using Bulky.Models;
+using Bulky.DataAccess.Entities;
+using Bulky.DataAccess.Repository.UnitOfWork.UnitOfWork;
 using Bulky.Utility;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -28,19 +28,19 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
 {
     public class RegisterModel : PageModel
     {
-        private readonly SignInManager<IdentityUser> _signInManager;
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly IUserStore<IdentityUser> _userStore;
-        private readonly IUserEmailStore<IdentityUser> _emailStore;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IUserStore<ApplicationUser> _userStore;
+        private readonly IUserEmailStore<ApplicationUser> _emailStore;
         private readonly ILogger<RegisterModel> _logger;
         private readonly IEmailSender _emailSender;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IUnitOfWork _unitOfWork;
 
         public RegisterModel(
-            UserManager<IdentityUser> userManager,
-            IUserStore<IdentityUser> userStore,
-            SignInManager<IdentityUser> signInManager,
+            UserManager<ApplicationUser> userManager,
+            IUserStore<ApplicationUser> userStore,
+            SignInManager<ApplicationUser> signInManager,
             ILogger<RegisterModel> logger,
             IEmailSender emailSender,
             RoleManager<IdentityRole> roleManager,
@@ -142,12 +142,12 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             {
                 RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name }),
 
-                CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
-                                                            .Select(c => new SelectListItem
-                                                            {
-                                                                Text = c.Name,
-                                                                Value = c.Id.ToString()
-                                                            }).ToList()
+                //CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
+                //                                            .Select(c => new SelectListItem
+                //                                            {
+                //                                                Text = c.Name,
+                //                                                Value = c.Id.ToString()
+                //                                            }).ToList()
             };
 
             ReturnUrl = returnUrl;
@@ -214,12 +214,12 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
 
             Input.RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name });
 
-            Input.CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
-                                                           .Select(c => new SelectListItem
-                                                           {
-                                                               Text = c.Name,
-                                                               Value = c.Id.ToString()
-                                                           }).ToList();
+            //Input.CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
+            //                                               .Select(c => new SelectListItem
+            //                                               {
+            //                                                   Text = c.Name,
+            //                                                   Value = c.Id.ToString()
+            //                                               }).ToList();
 
             // If we got this far, something failed, redisplay form
             return Page();
@@ -239,13 +239,13 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             }
         }
 
-        private IUserEmailStore<IdentityUser> GetEmailStore()
+        private IUserEmailStore<ApplicationUser> GetEmailStore()
         {
             if (!_userManager.SupportsUserEmail)
             {
                 throw new NotSupportedException("The default UI requires a user store with email support.");
             }
-            return (IUserEmailStore<IdentityUser>)_userStore;
+            return (IUserEmailStore<ApplicationUser>)_userStore;
         }
     }
 }

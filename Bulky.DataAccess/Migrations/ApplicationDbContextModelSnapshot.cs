@@ -22,7 +22,7 @@ namespace Bulky.DataAccess.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Bulky.Models.Category", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.Category", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -30,13 +30,12 @@ namespace Bulky.DataAccess.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -46,24 +45,21 @@ namespace Bulky.DataAccess.Migrations
                         new
                         {
                             Id = 1,
-                            DisplayOrder = 1,
                             Name = "Action"
                         },
                         new
                         {
                             Id = 2,
-                            DisplayOrder = 2,
                             Name = "SciFi"
                         },
                         new
                         {
                             Id = 3,
-                            DisplayOrder = 3,
                             Name = "History"
                         });
                 });
 
-            modelBuilder.Entity("Bulky.Models.Company", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.Company", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -95,7 +91,7 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("Companies");
                 });
 
-            modelBuilder.Entity("Bulky.Models.OrderDetail", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.OrderDetail", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -124,7 +120,7 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("OrderDetails");
                 });
 
-            modelBuilder.Entity("Bulky.Models.OrderHeader", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.OrderHeader", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -200,7 +196,7 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("OrderHeaders");
                 });
 
-            modelBuilder.Entity("Bulky.Models.Product", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.Product", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -388,7 +384,7 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("AspNetRoleClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
@@ -457,12 +453,12 @@ namespace Bulky.DataAccess.Migrations
 
                     b.ToTable("AspNetUsers", (string)null);
 
-                    b.HasDiscriminator().HasValue("IdentityUser");
+                    b.HasDiscriminator().HasValue("ApplicationUser");
 
                     b.UseTphMappingStrategy();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserClaim<string>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -487,7 +483,7 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("AspNetUserClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserLogin<string>", b =>
                 {
                     b.Property<string>("LoginProvider")
                         .HasColumnType("nvarchar(450)");
@@ -509,7 +505,7 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("AspNetUserLogins", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserRole<string>", b =>
                 {
                     b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
@@ -524,7 +520,7 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("AspNetUserRoles", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserToken<string>", b =>
                 {
                     b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
@@ -543,9 +539,9 @@ namespace Bulky.DataAccess.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Bulky.Models.ApplicationUser", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.ApplicationUser", b =>
                 {
-                    b.HasBaseType("Microsoft.AspNetCore.Identity.IdentityUser");
+                    b.HasBaseType("Microsoft.AspNetCore.Identity.ApplicationUser");
 
                     b.Property<string>("City")
                         .HasColumnType("nvarchar(max)");
@@ -571,15 +567,15 @@ namespace Bulky.DataAccess.Migrations
                     b.HasDiscriminator().HasValue("ApplicationUser");
                 });
 
-            modelBuilder.Entity("Bulky.Models.OrderDetail", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.OrderDetail", b =>
                 {
-                    b.HasOne("Bulky.Models.OrderHeader", "OrderHeader")
+                    b.HasOne("Bulky.DataAccess.Entities.OrderHeader", "OrderHeader")
                         .WithMany()
                         .HasForeignKey("OrderHeaderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Bulky.Models.Product", "Product")
+                    b.HasOne("Bulky.DataAccess.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -590,9 +586,9 @@ namespace Bulky.DataAccess.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("Bulky.Models.OrderHeader", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.OrderHeader", b =>
                 {
-                    b.HasOne("Bulky.Models.ApplicationUser", "ApplicationUser")
+                    b.HasOne("Bulky.DataAccess.Entities.ApplicationUser", "ApplicationUser")
                         .WithMany()
                         .HasForeignKey("ApplicationUserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -601,9 +597,9 @@ namespace Bulky.DataAccess.Migrations
                     b.Navigation("ApplicationUser");
                 });
 
-            modelBuilder.Entity("Bulky.Models.Product", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.Product", b =>
                 {
-                    b.HasOne("Bulky.Models.Category", "Category")
+                    b.HasOne("Bulky.DataAccess.Entities.Category", "Category")
                         .WithMany()
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -621,25 +617,25 @@ namespace Bulky.DataAccess.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserClaim<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserLogin<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserRole<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
                         .WithMany()
@@ -647,25 +643,25 @@ namespace Bulky.DataAccess.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.ApplicationUserToken<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Bulky.Models.ApplicationUser", b =>
+            modelBuilder.Entity("Bulky.DataAccess.Entities.ApplicationUser", b =>
                 {
-                    b.HasOne("Bulky.Models.Company", "Company")
+                    b.HasOne("Bulky.DataAccess.Entities.Company", "Company")
                         .WithMany()
                         .HasForeignKey("CompanyId");
 

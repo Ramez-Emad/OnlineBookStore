@@ -1,9 +1,8 @@
-﻿using Bulky.DataAccess.Repository;
-using Bulky.DataAccess.Repository.IRepositories;
-using Bulky.Models;
-using Bulky.Models.ViewModels;
+﻿using Bulky.BL.Models.Products;
+using Bulky.BL.Services._ServicesManager;
+using Bulky.DataAccess.Exceptions;
 using Bulky.Utility;
-using Bulky.Utility.Attachments;
+using BulkyWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -13,67 +12,65 @@ using System.Data;
 namespace BulkyWeb.Areas.Admin.Controllers
 {
     [Area(areaName: "Admin")]
-    [Authorize(Roles  = SD.Role_Admin)]
-    public class ProductController(IUnitOfWork _unitOfWork, IAttachmentService attachmentService) : Controller
+    [Authorize(Roles = SD.Role_Admin)]
+    public class ProductController(IServicesManager _servicesManager) : Controller
     {
         public IActionResult Index()
         {
-          return View();
+            return View();
         }
 
         [HttpGet]
 
-        public IActionResult Upsert(int? Id)
+        public async Task<IActionResult> Upsert(int? Id)
         {
-            IEnumerable<SelectListItem> Categories = _unitOfWork.GetRepository<Category>().GetAll().Select(
-              cat => new SelectListItem()
+            var categories = await _servicesManager.CategoryService.GetAllCategoriesAsync();
+
+            var CategoriesList = categories.Select( cat => new SelectListItem()
               {
                   Text = cat.Name,
                   Value = cat.Id.ToString()
               });
 
-            var productVM = new ProductVM()
+            var upsertProductVM = new UpsertProductVM()
             {
-                CategoryList = Categories,
-                Product = new Product()
+                CategoryList = CategoriesList
             };
 
             if (Id != null || Id > 0)
             {
-                var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == Id);
-                if (product == null)
-                {
-                    return NotFound();
-                }
-                productVM.Product = product;
-
+                var product = await _servicesManager.ProductService.GetProductByIdAsync(Id);
+                upsertProductVM.ProductDTO = _servicesManager.Mapper.Map<UpsertProductDto>(product);
             }
-
-            return View(productVM);
+            
+            return View(upsertProductVM);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Upsert(ProductVM productVM, IFormFile? file)
+        public async Task<IActionResult> Upsert(UpsertProductVM productVM, IFormFile? file)
         {
             if (!ModelState.IsValid)
             {
-                IEnumerable<SelectListItem> Categories = _unitOfWork.GetRepository<Category>().GetAll().Select(
-                cat => new SelectListItem()
+                var categories = await _servicesManager.CategoryService.GetAllCategoriesAsync();
+
+                var CategoriesList = categories.Select(cat => new SelectListItem()
                 {
                     Text = cat.Name,
                     Value = cat.Id.ToString()
                 });
-                productVM.CategoryList = Categories;
+
+                productVM.CategoryList = CategoriesList;
                 return View(productVM);
             }
-            if (productVM.Product.Id == 0)
+
+            if (productVM.ProductDTO.Id == 0)
             {
                 if (file != null)
-                    productVM.Product.ImageUrl = attachmentService.Upload(file, "Images\\Products")!;
+                    productVM.ProductDTO.ImageUrl = _servicesManager.AttachmentService.UploadProductImage(file)!;
                 else
-                    productVM.Product.ImageUrl = "PlaceHolder.png";
+                    productVM.ProductDTO.ImageUrl = "PlaceHolder.png";
 
-                _unitOfWork.GetRepository<Product>().Add(productVM.Product);
+                await _servicesManager.ProductService.CreateProductAsync(productVM.ProductDTO);
 
                 TempData["success"] = "Product created successfully";
             }
@@ -81,23 +78,20 @@ namespace BulkyWeb.Areas.Admin.Controllers
             {
                 if (file != null)
                 {
-                    string path = Path.Combine("Images\\Products", productVM.Product.ImageUrl);
-                    attachmentService.Delete(path);
-                    productVM.Product.ImageUrl = attachmentService.Upload(file, "Images\\Products")!;
+                    productVM.ProductDTO.ImageUrl = _servicesManager.AttachmentService.UpdateProductImage(productVM.ProductDTO.ImageUrl, file)!;
                 }
-                _unitOfWork.GetRepository<Product>().Update(productVM.Product);
+                await _servicesManager.ProductService.UpdateProductAsync(productVM.ProductDTO);
                 TempData["success"] = "Product updated successfully";
             }
-            await _unitOfWork.SaveChangesAsync();
             return RedirectToAction("Index");
         }
-     
+
         #region API CALLS
 
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var products = _unitOfWork.GetRepository<Product>().GetAll(p => p.Category);
+            var products = await _servicesManager.ProductService.GetAllProductsAsync();
             return Json(new { data = products });
         }
 
@@ -106,25 +100,22 @@ namespace BulkyWeb.Areas.Admin.Controllers
         public async Task<IActionResult> Delete(int? Id)
         {
 
-            var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == Id);
+            var product = await _servicesManager.ProductService.GetProductByIdAsync(Id);
 
             if (product == null)
                 return Json(new { success = false, message = "Error while deleting" });
 
-            string path = Path.Combine("Images\\Products", product.ImageUrl);
-            attachmentService.Delete(path);
+            _servicesManager.AttachmentService.DeleteProductImage(product.ImageUrl);
 
-            _unitOfWork.GetRepository<Product>().Remove(product);
-            await _unitOfWork.SaveChangesAsync();
+            await _servicesManager.ProductService.DeleteProductAsync(Id);
 
             return Json(new { success = true, message = "Delete Successful" });
+        }
 
+       
+        #endregion
 
         }
 
-        
-
-        #endregion
-
-    }
+    
 }

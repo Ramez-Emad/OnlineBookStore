@@ -1,13 +1,15 @@
-﻿using Bulky.DataAccess.Repository.IRepositories;
-using Bulky.Models;
-using Bulky.Models.ViewModels;
+﻿using Bulky.BL.Models.Products;
+using Bulky.BL.Services._ServicesManager;
+using Bulky.DataAccess.Entities;
 using Bulky.Utility;
+using BulkyWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
 using Stripe;
 using Stripe.Checkout;
 using System.Security.Claims;
-using Product = Bulky.Models.Product;
 
 namespace BulkyWeb.Areas.Customer.Controllers
 {
@@ -15,18 +17,18 @@ namespace BulkyWeb.Areas.Customer.Controllers
     [Authorize]
     public class CartController : Controller
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly ICartRepository _cartRepository;
-
-        public CartController(IUnitOfWork unitOfWork, ICartRepository cartRepository)
+        private readonly IServicesManager _servicesManager;
+        private readonly UserManager<ApplicationUser> _userManager;
+        public CartController(IServicesManager servicesManager, UserManager<ApplicationUser> userManager)
         {
-            _unitOfWork = unitOfWork;
-            _cartRepository = cartRepository;
+            _servicesManager = servicesManager;
+            _userManager = userManager;
         }
         public async Task<IActionResult> Index()
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _cartRepository.GetCartAsync(userId!);
+            var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId!);
+
             if (cart == null)
             {
                 cart = new Cart
@@ -41,41 +43,13 @@ namespace BulkyWeb.Areas.Customer.Controllers
         public async Task<IActionResult> Minus(int Id)
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _cartRepository.GetCartAsync(userId!);
+            var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId!);
 
             if (cart != null)
             {
-                var item = cart.Items.FirstOrDefault(i => i.ProductId == Id);
-
-                if (item != null)
-                {
-                    cart.TotalCost -= (item.Price * item.Quantity);
-
-                    if (item.Quantity > 1)
-                    {
-                        item.Quantity--;
-
-                        var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == item.ProductId);
-                        if (product != null)
-                            item.Price = GetPrice(product, item.Quantity);
-
-                        cart.TotalCost += (item.Price * item.Quantity);
-
-                    }
-                    else
-                    {
-
-                        cart.Items.Remove(item);
-                        if (cart.Items.Count == 0)
-                        {
-                            await _cartRepository.DeleteCartAsync(userId!);
-                            return RedirectToAction("Index");
-
-                        }
-                    }
-                }
-                await _cartRepository.CreateOrUpdateCartAsync(cart);
-
+                var product = await _servicesManager.ProductService.GetProductByIdAsync(Id);
+                if (product != null)
+                    await _servicesManager.CartServices.DecrementProductInUserCart(cart, product);
             }
 
             return RedirectToAction("Index");
@@ -84,26 +58,13 @@ namespace BulkyWeb.Areas.Customer.Controllers
         public async Task<IActionResult> Plus(int Id)
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _cartRepository.GetCartAsync(userId!);
+            var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId!);
 
             if (cart != null)
             {
-                var item = cart.Items.FirstOrDefault(i => i.ProductId == Id);
-
-                if (item != null)
-                {
-                    cart.TotalCost -= (item.Price * item.Quantity);
-
-                    item.Quantity++;
-
-                    var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == item.ProductId);
-                    if (product != null)
-                        item.Price = GetPrice(product, item.Quantity);
-
-                    cart.TotalCost += (item.Price * item.Quantity);
-
-                }
-                await _cartRepository.CreateOrUpdateCartAsync(cart);
+                var product = await _servicesManager.ProductService.GetProductByIdAsync(Id);
+                if(product != null)
+                    await _servicesManager.CartServices.IncrementProductInUserCart(cart, product);
             }
 
             return RedirectToAction("Index");
@@ -112,37 +73,23 @@ namespace BulkyWeb.Areas.Customer.Controllers
         public async Task<IActionResult> Delete(int Id)
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _cartRepository.GetCartAsync(userId!);
+            var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId!);
 
-            if (cart != null)
-            {
-                var item = cart.Items.FirstOrDefault(i => i.ProductId == Id);
+            await _servicesManager.CartServices.DeleteProductFromUserCart(cart, Id);
 
-                if (item != null)
-                {
-                    cart.TotalCost -= (item.Quantity * item.Price);
-                    cart.Items.Remove(item);
-                    if (cart.Items.Count == 0)
-                    {
-                        await _cartRepository.DeleteCartAsync(userId!);
-                        return RedirectToAction("Index");
-
-                    }
-                }
-                await _cartRepository.CreateOrUpdateCartAsync(cart);
-            }
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> Summary()
         {
-            string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-            var user = _unitOfWork.GetRepository<ApplicationUser>().Get(u => u.Id == userId);
+            var user = await _userManager.FindByIdAsync(userId);
+
             if (user == null) return NotFound();
 
-            var cart = await _cartRepository.GetCartAsync(userId);
+            var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId);
+
             if (cart == null || !cart.Items.Any()) return NotFound();
 
             var orderHeader = new OrderHeader
@@ -171,11 +118,12 @@ namespace BulkyWeb.Areas.Customer.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Summary(SummaryVM summary)
         {
-            string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-            var cart = await _cartRepository.GetCartAsync(userId);
+            var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId);
+
             if (cart == null || !cart.Items.Any()) return NotFound();
+
             summary.CartItems = cart.Items;
 
             if (!ModelState.IsValid)
@@ -183,76 +131,25 @@ namespace BulkyWeb.Areas.Customer.Controllers
                 return View(summary);
             }
 
-            ApplicationUser? applicationUser = _unitOfWork.GetRepository<ApplicationUser>().Get(u => u.Id == userId);
-            if (applicationUser == null) return NotFound();
+            var IsInRoleCompany = User.IsInRole(SD.Role_Company);
 
-            summary.OrderHeader.OrderDate = DateTime.Now;
-            summary.OrderHeader.OrderTotal = cart.TotalCost;
-            if (applicationUser.CompanyId.GetValueOrDefault() == 0)
-            {
-                summary.OrderHeader.PaymentStatus = SD.PaymentStatusPending;
-                summary.OrderHeader.OrderStatus = SD.StatusPending;
-            }
-            else
-            {
-                summary.OrderHeader.PaymentStatus = SD.PaymentStatusDelayedPayment;
-                summary.OrderHeader.OrderStatus = SD.StatusApproved;
-            }
-            _unitOfWork.GetRepository<OrderHeader>().Add(summary.OrderHeader);
-            await _unitOfWork.SaveChangesAsync();
+            await _servicesManager.OrderServices.CreateOrder(summary.OrderHeader, cart, IsInRoleCompany);
 
-            foreach (var item in summary.CartItems)
+            if (!IsInRoleCompany)
             {
-                OrderDetail orderDetail = new()
-                {
-                    ProductId = item.ProductId,
-                    OrderHeaderId = summary.OrderHeader.Id,
-                    Price = item.Price,
-                    Count = item.Quantity
-                };
-                _unitOfWork.GetRepository<OrderDetail>().Add(orderDetail);
-            }
-            await _unitOfWork.SaveChangesAsync();
 
-            if (applicationUser.CompanyId.GetValueOrDefault() == 0)
-            {
-                var domain = "https://localhost:7179/";
-                var options = new Stripe.Checkout.SessionCreateOptions
-                {
-                    SuccessUrl = domain + $"customer/cart/OrderConfirmation?id={summary.OrderHeader.Id}",
-                    CancelUrl = domain + $"customer/cart/index",
-                    LineItems = new List<Stripe.Checkout.SessionLineItemOptions>(),       
-                    Mode = "payment",
-                };
-                foreach(var item in cart.Items)
-                {
-                    var sessionLineItem = new SessionLineItemOptions
-                    {
-                        PriceData = new SessionLineItemPriceDataOptions()
-                        {
-                            UnitAmount = (long)(item.Price * 100), // $20.50 => 2050
-                            Currency = "usd",
-                            ProductData = new SessionLineItemPriceDataProductDataOptions
-                            {
-                                Name = item.Title
-                            }
-                        },
-                        Quantity = item.Quantity,                   
-                    };
-                    options.LineItems.Add(sessionLineItem);
-                }
+                var domain = Request.Scheme + "://" + Request.Host.Value + "/";
+                var SuccessUrl = domain + $"customer/cart/OrderConfirmation?id={summary.OrderHeader.Id}";
+                var CancelUrl = domain + $"customer/cart/index";
+               
                 try
                 {
-                    var service = new SessionService();
-                    Session session = service.Create(options);
+                    var session = await _servicesManager.PaymentService.PayOrder(summary.CartItems,
+                        summary.OrderHeader.Id, SuccessUrl, CancelUrl);
 
-                    ((IOrderHeaderRepository)_unitOfWork.GetRepository<OrderHeader>()).UpdateStripePaymentID(summary.OrderHeader.Id, session.Id, session.PaymentIntentId);
-
-                    await _unitOfWork.SaveChangesAsync();
-
-                    Response.Headers.Add("Location", session.Url);
+                    Response.Headers.Append("Location", session.Url);
                     return new StatusCodeResult(303);
-                }              
+                }
                 catch (StripeException e)
                 {
                     switch (e.StripeError.Type)
@@ -275,10 +172,11 @@ namespace BulkyWeb.Areas.Customer.Controllers
 
         public async Task<IActionResult> OrderConfirmation(int id)
         {
-           
-            OrderHeader orderHeader = _unitOfWork.GetRepository<OrderHeader>().Get(u => u.Id == id);
 
-            ApplicationUser user = _unitOfWork.GetRepository<ApplicationUser>().Get(u => u.Id == orderHeader.ApplicationUserId);
+            var orderHeader = await _servicesManager.OrderServices.GetOrderHeaderByIdAsync(id);
+
+            if (orderHeader == null) return NotFound();
+
 
             if (orderHeader.PaymentStatus != SD.PaymentStatusDelayedPayment)
             {
@@ -288,10 +186,9 @@ namespace BulkyWeb.Areas.Customer.Controllers
 
                 if (session.PaymentStatus.ToLower() == "paid")
                 {
-                    (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStripePaymentID(id, session.Id, session.PaymentIntentId);
-                    (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
+                    await _servicesManager.OrderServices.UpdateStripePaymentID(id, session.Id, session.PaymentIntentId);
 
-                    await _unitOfWork.SaveChangesAsync();
+                    await _servicesManager.OrderServices.UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
 
                 }
                 else
@@ -300,18 +197,10 @@ namespace BulkyWeb.Areas.Customer.Controllers
                 }
 
             }
-            _cartRepository.DeleteCartAsync(user.Id);
+            await _servicesManager.CartServices.DeleteUserCartAsync(orderHeader.ApplicationUserId);
             return View(id);
         }
-        private double GetPrice(Product product, int quantity)
-        {
-            return quantity switch
-            {
-                >= 100 => product.Price100,
-                >= 50 => product.Price50,
-                _ => product.Price
-            };
-        }
+
     }
 
 

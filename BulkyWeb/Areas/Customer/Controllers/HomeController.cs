@@ -1,8 +1,10 @@
 ﻿using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Bulky.DataAccess.Repository.IRepositories;
-using Bulky.Models;
+using Bulky.BL.Models.Products;
+using Bulky.BL.Services._ServicesManager;
+using Bulky.DataAccess.Entities;
+using Bulky.DataAccess.Repository.Carts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,26 +14,24 @@ namespace BulkyWeb.Areas.Customer.Controllers
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly ICartRepository _cartRepository;
+        private readonly IServicesManager _servicesManager;
 
-        public HomeController(ILogger<HomeController> logger , IUnitOfWork unitOfWork , ICartRepository cartRepository)
+        public HomeController(ILogger<HomeController> logger, IServicesManager servicesManager)
         {
             _logger = logger;
-            _unitOfWork = unitOfWork;
-            _cartRepository = cartRepository;
+            _servicesManager = servicesManager;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
 
-            IEnumerable<Product> productList = _unitOfWork.GetRepository<Product>().GetAll(p => p.Category);
+            var productList = await _servicesManager.ProductService.GetAllProductsAsync();
             return View(productList);
         }
 
-        public IActionResult Details(int Id)
+        public async Task<IActionResult> Details(int Id)
         {
-            var product = _unitOfWork.GetRepository<Product>().Get(u => u.Id == Id, p => p.Category);          
+            var product = await _servicesManager.ProductService.GetProductByIdAsync(Id);
             return View(product);
         }
 
@@ -40,68 +40,22 @@ namespace BulkyWeb.Areas.Customer.Controllers
         public async Task<IActionResult> Details(int productId, int quantity)
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _cartRepository.GetCartAsync(userId!);
-            var product = _unitOfWork.GetRepository<Product>().Get(prod => prod.Id == productId);
-
-            if (product == null)
-                return View("Error");
+            var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId!);
 
             if (cart == null)
             {
-                var item = CreateCartItem(product, quantity);
-                cart = new Cart
+                cart = new Cart()
                 {
                     Id = userId!,
-                    Items = [item],
-                    TotalCost = item.Quantity * item.Price
+                    Items = []
                 };
             }
-            else
-            {
 
-                cart.Items ??= new List<CartItem>();
+            var product = await _servicesManager.ProductService.GetProductByIdAsync(productId);
 
-                var existingItem = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+            await _servicesManager.CartServices.CreateOrUpdateUserCartAsync(product!, quantity, cart);
 
-                if (existingItem != null)
-                {
-                    cart.TotalCost -= existingItem.Price * existingItem.Quantity;
-                    existingItem.Quantity += quantity;
-                    existingItem.Price = GetPrice(product, existingItem.Quantity);
-                    cart.TotalCost += existingItem.Price * existingItem.Quantity;
-                }
-                else
-                {
-                    var item = CreateCartItem(product, quantity);
-                    cart.Items.Add(item);
-                    cart.TotalCost += item.Price * item.Quantity;
-                }
-            }
-            await _cartRepository.CreateOrUpdateCartAsync(cart);
             return RedirectToAction("Index");
-        }
-
-        private double GetPrice(Product product, int quantity)
-        {
-            return quantity switch
-            {
-                >= 100 => product.Price100,
-                >= 50 => product.Price50,
-                _ => product.Price
-            };
-        }
-
-        private CartItem CreateCartItem(Product product, int quantity)
-        {
-            return new CartItem
-            {
-                ProductId = product.Id,
-                Title = product.Title,
-                Description = product.Description,
-                ImageUrl = product.ImageUrl,
-                Quantity = quantity,
-                Price = GetPrice(product, quantity)
-            };
         }
 
 

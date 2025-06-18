@@ -1,13 +1,11 @@
-﻿using Bulky.DataAccess.Repository.IRepositories;
-using Bulky.Models;
-using Bulky.Models.ViewModels;
+﻿using Bulky.BL.Services._ServicesManager;
 using Bulky.Utility;
+using BulkyWeb.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Stripe;
 using Stripe.Checkout;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace BulkyWeb.Areas.Admin.Controllers
 {
@@ -15,26 +13,24 @@ namespace BulkyWeb.Areas.Admin.Controllers
     [Authorize]
     public class OrderController : Controller
     {
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IServicesManager _servicesManager;
 
-        public OrderController(IUnitOfWork unitOfWork)
+        public OrderController(IServicesManager servicesManager)
         {
-            _unitOfWork = unitOfWork;
+            _servicesManager = servicesManager;
         }
-       
+
+
         public IActionResult Index()
         {
             return View();
         }
 
-        public IActionResult Details(int id)
+        public async Task<IActionResult> Details(int id)
         {
-            OrderHeader? orderHeader = _unitOfWork.GetRepository<OrderHeader>().Get(o => o.Id == id , o => o.ApplicationUser);
-            if (orderHeader == null)
-            {
-                return NotFound();
-            }
-            var orderitems = _unitOfWork.GetRepository<OrderDetail>().GetAll(o => o.Product).Where(o => o.OrderHeaderId == id).ToList();
+            OrderHeader orderHeader = await _servicesManager.OrderServices.GetOrderHeaderByIdAsync(id);
+
+            var orderitems = await _servicesManager.OrderServices.GetOrderDetailsByIdAsync(id);
 
             var orderVM = new OrderVM()
             {
@@ -49,71 +45,38 @@ namespace BulkyWeb.Areas.Admin.Controllers
         [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         public async Task<IActionResult> UpdateOrderDetail(OrderHeader orderHeader)
         {
-            var orderHeaderFromDb = _unitOfWork.GetRepository<OrderHeader>().Get(u => u.Id == orderHeader.Id);
-
-            if (orderHeaderFromDb == null) {
-                return NotFound();
-            }
-
-            orderHeaderFromDb.Name = orderHeader.Name;
-            orderHeaderFromDb.PhoneNumber = orderHeader.PhoneNumber;
-            orderHeaderFromDb.StreetAddress = orderHeader.StreetAddress;
-            orderHeaderFromDb.City = orderHeader.City;
-            orderHeaderFromDb.State = orderHeader.State;
-            orderHeaderFromDb.PostalCode = orderHeader.PostalCode;
-            if (!string.IsNullOrEmpty(orderHeader.Carrier))
+            if (ModelState.IsValid)
             {
-                orderHeaderFromDb.Carrier = orderHeader.Carrier;
+                await _servicesManager.OrderServices.UpdateOrderHeader(orderHeader);
+
+                TempData["Success"] = "Order Details Updated Successfully.";
             }
-            if (!string.IsNullOrEmpty(orderHeader.TrackingNumber))
-            {
-                orderHeaderFromDb.Carrier = orderHeader.TrackingNumber;
-            }
-            _unitOfWork.GetRepository<OrderHeader>().Update(orderHeaderFromDb);
-            await _unitOfWork.SaveChangesAsync();
 
-            TempData["Success"] = "Order Details Updated Successfully.";
-
-
-            return RedirectToAction(nameof(Details), new { id = orderHeaderFromDb.Id });
+            return RedirectToAction(nameof(Details), new { id = orderHeader.Id });
         }
 
         [HttpPost]
         [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         public async Task<IActionResult> StartProcessing(int id)
         {
-            (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStatus(id, SD.StatusInProcess);
-
-            await _unitOfWork.SaveChangesAsync();
-
+            await _servicesManager.OrderServices.UpdateStatus(id, SD.StatusInProcess);
             TempData["Success"] = "Order Details Updated Successfully.";
             return RedirectToAction(nameof(Details), new { id = id });
         }
 
         [HttpPost]
         [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
-        public async Task<IActionResult> ShipOrder( OrderHeader orderHeader)
+        public async Task<IActionResult> ShipOrder(OrderHeader orderHeader)
         {
-
-            var orderHeaderDb = _unitOfWork.GetRepository<OrderHeader>().Get(o => o.Id == orderHeader.Id);
-
-            if (orderHeaderDb == null)
-                return NotFound();
-
-            orderHeaderDb.TrackingNumber = orderHeader.TrackingNumber;
-            orderHeaderDb.Carrier = orderHeader.Carrier;
-            orderHeaderDb.OrderStatus = SD.StatusShipped;
-            orderHeaderDb.ShippingDate = DateTime.Now;
-
-            if (orderHeaderDb.PaymentStatus == SD.PaymentStatusDelayedPayment)
+            if (ModelState.IsValid)
             {
-                orderHeaderDb.PaymentDueDate = DateTime.Now.AddDays(30);
+                await _servicesManager.OrderServices.ShipOrder(orderHeader);
+
+                TempData["Success"] = "Order Shipped Successfully.";
             }
 
-            _unitOfWork.GetRepository<OrderHeader>().Update(orderHeaderDb);
-            await _unitOfWork.SaveChangesAsync();
-            TempData["Success"] = "Order Shipped Successfully.";
-            return RedirectToAction(nameof(Details), new { id = orderHeaderDb.Id });
+            return RedirectToAction(nameof(Details), new { id = orderHeader.Id });
+
         }
 
         [HttpPost]
@@ -121,7 +84,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
         public async Task<IActionResult> CancelOrder(int id)
         {
 
-            var orderHeader = _unitOfWork.GetRepository<OrderHeader>().Get(o => o.Id == id);
+            var orderHeader = await  _servicesManager.OrderServices.GetOrderHeaderByIdAsync(id);
 
             if (orderHeader.PaymentStatus == SD.PaymentStatusApproved)
             {
@@ -134,15 +97,14 @@ namespace BulkyWeb.Areas.Admin.Controllers
                 var service = new RefundService();
                 Refund refund = service.Create(options);
 
-                (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStatus(orderHeader.Id, SD.StatusCancelled, SD.StatusRefunded);
+                await _servicesManager.OrderServices.UpdateStatus(orderHeader.Id, SD.StatusCancelled, SD.StatusRefunded);
             }
             else
             {
-                (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStatus(orderHeader.Id, SD.StatusCancelled, SD.StatusCancelled);
+                await _servicesManager.OrderServices.UpdateStatus(orderHeader.Id, SD.StatusCancelled, SD.StatusCancelled);
             }
-            await _unitOfWork.SaveChangesAsync();
             TempData["Success"] = "Order Cancelled Successfully.";
-            return RedirectToAction(nameof(Details), new { id =id });
+            return RedirectToAction(nameof(Details), new { id = id });
 
         }
 
@@ -151,68 +113,60 @@ namespace BulkyWeb.Areas.Admin.Controllers
         [HttpPost]
         public async Task<IActionResult> Details_PAY_NOW(int id)
         {
-            var orderHeader = _unitOfWork.GetRepository<OrderHeader>().Get(o => o.Id == id);
+            var orderHeader = await _servicesManager.OrderServices.GetOrderHeaderByIdAsync(id);
 
-            var OrderDetails = _unitOfWork.GetRepository<OrderDetail>().GetAll(o => o.Product).Where(o => o.OrderHeaderId == id);
+            var OrderDetails = await _servicesManager.OrderServices.GetOrderDetailsByIdAsync(id);
 
             //stripe logic
             var domain = Request.Scheme + "://" + Request.Host.Value + "/";
-            var options = new SessionCreateOptions
-            {
-                SuccessUrl = domain + $"admin/order/PaymentConfirmation?orderHeaderId={orderHeader.Id}",
-                CancelUrl = domain + $"admin/order/details?orderId={orderHeader.Id}",
-                LineItems = new List<SessionLineItemOptions>(),
-                Mode = "payment",
-            };
+            var SuccessUrl = domain + $"admin/order/PaymentConfirmation?orderHeaderId={orderHeader.Id}";
+            var CancelUrl = domain + $"admin/order/details?orderId={orderHeader.Id}";
+            
+            var items = OrderDetails.Select(item => new CartItem() { Title = item.Product.Title, Price = item.Price, Quantity = item.Count });
 
-            foreach (var item in OrderDetails)
+            try
             {
-                var sessionLineItem = new SessionLineItemOptions
+                var session = await _servicesManager.PaymentService.PayOrder(items, orderHeader.Id, SuccessUrl, CancelUrl);
+
+                Response.Headers.Append("Location", session.Url);
+                return new StatusCodeResult(303);
+            }
+            catch (StripeException e)
+            {
+                switch (e.StripeError.Type)
                 {
-                    PriceData = new SessionLineItemPriceDataOptions
-                    {
-                        UnitAmount = (long)(item.Price * 100), // $20.50 => 2050
-                        Currency = "usd",
-                        ProductData = new SessionLineItemPriceDataProductDataOptions
-                        {
-                            Name = item.Product.Title
-                        }
-                    },
-                    Quantity = item.Count
-                };
-                options.LineItems.Add(sessionLineItem);
+                    case "card_error":
+                        Console.WriteLine($"A payment error occurred: {e.StripeError.Message}");
+                        break;
+                    case "invalid_request_error":
+                        Console.WriteLine("An invalid request occurred.");
+                        break;
+                    default:
+                        Console.WriteLine("Another problem occurred, maybe unrelated to Stripe.");
+                        break;
+                }
             }
 
-
-            var service = new SessionService();
-            Session session = service.Create(options);
-            (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStripePaymentID(orderHeader.Id, session.Id, session.PaymentIntentId);
-
-            await _unitOfWork.SaveChangesAsync();
-
-            Response.Headers.Add("Location", session.Url);
-            return new StatusCodeResult(303);
+            return RedirectToAction(nameof(Details), new { id = id });
         }
 
 
-        public IActionResult PaymentConfirmation(int orderHeaderId)
+        public async Task<IActionResult> PaymentConfirmation(int orderHeaderId)
         {
 
-            OrderHeader orderHeader = _unitOfWork.GetRepository<OrderHeader>().Get(u => u.Id == orderHeaderId);
+            OrderHeader orderHeader = await _servicesManager.OrderServices.GetOrderHeaderByIdAsync(orderHeaderId);
+
             if (orderHeader.PaymentStatus == SD.PaymentStatusDelayedPayment)
             {
-
                 var service = new SessionService();
                 Session session = service.Get(orderHeader.SessionId);
 
                 if (session.PaymentStatus.ToLower() == "paid")
                 {
-                    (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStripePaymentID(orderHeaderId, session.Id, session.PaymentIntentId);
-                    (_unitOfWork.GetRepository<OrderHeader>() as IOrderHeaderRepository).UpdateStatus(orderHeaderId, orderHeader.OrderStatus, SD.PaymentStatusApproved);
-                    _unitOfWork.SaveChangesAsync();
+                    await _servicesManager.OrderServices.UpdateStripePaymentID(orderHeaderId, session.Id, session.PaymentIntentId);
+
+                    await _servicesManager.OrderServices.UpdateStatus(orderHeaderId, orderHeader.OrderStatus, SD.PaymentStatusApproved);
                 }
-
-
             }
 
 
@@ -223,16 +177,15 @@ namespace BulkyWeb.Areas.Admin.Controllers
         #region API Calls
 
         [HttpGet]
-        public IActionResult GetAll(string status)
+        public async Task<IActionResult> GetAll(string status)
         {
-            IEnumerable<OrderHeader?> ordersHeaders;
 
-            if (User.IsInRole(SD.Role_Admin) || User.IsInRole(SD.Role_Employee))
-                ordersHeaders = _unitOfWork.GetRepository<OrderHeader>().GetAll(o => o.ApplicationUser);
-            else
+            var ordersHeaders = await _servicesManager.OrderServices.GetAllOrdersAsync();
+
+            if (!User.IsInRole(SD.Role_Admin) && !User.IsInRole(SD.Role_Employee))
             {
                 string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-                ordersHeaders = _unitOfWork.GetRepository<OrderHeader>().GetAll(o => o.ApplicationUser).Where(o=>o.ApplicationUserId == userId);
+                ordersHeaders = ordersHeaders.Where(o => o.ApplicationUserId == userId);
             }
 
 

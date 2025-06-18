@@ -1,6 +1,4 @@
-using Bulky.DataAccess.Repository;
-using Bulky.DataAccess.Repository.IRepositories;
-using Bulky.Utility.Attachments;
+global using Bulky.DataAccess.Entities;
 using BulkyWeb.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -9,6 +7,15 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using StackExchange.Redis;
 using System.Configuration;
 using Stripe;
+using Bulky.DataAccess.Repository.Carts;
+using Bulky.DataAccess.Repository.Categories;
+using Bulky.DataAccess.Repository.UnitOfWork;
+using Bulky.DataAccess.Repository.UnitOfWork.UnitOfWork;
+using Bulky.BL.Common.Attachments;
+using Bulky.DataAccess.UnitOfWork.UnitOfWork.UnitOfWork;
+using Bulky.BL.Profiles;
+using Bulky.BL.Services._ServicesManager;
+using BulkyWeb.CustomMiddleWares;
 
 namespace BulkyWeb
 {
@@ -29,13 +36,16 @@ namespace BulkyWeb
 
             builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 
-            builder.Services.AddIdentity<IdentityUser , IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultUI().AddDefaultTokenProviders();
+            builder.Services.AddIdentity<ApplicationUser , IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultUI().AddDefaultTokenProviders();
 
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<IAttachmentService, AttachmentService>();
             builder.Services.AddScoped<IEmailSender, EmailSender>();
             builder.Services.AddScoped<ICartRepository, CartRepository>();
+            builder.Services.AddScoped<IServicesManager , ServicesManager>();
+            builder.Services.AddAutoMapper(M => M.AddProfile(new MappingProfiles()));
+
 
             builder.Services.AddSingleton<IConnectionMultiplexer>((_) =>
             {
@@ -44,10 +54,10 @@ namespace BulkyWeb
 
             var app = builder.Build();
 
+
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
             {
-                app.UseExceptionHandler("/Home/Error");
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
@@ -57,8 +67,13 @@ namespace BulkyWeb
             StripeConfiguration.ApiKey = builder.Configuration.GetSection("Stripe:SecretKey").Get<string>();
             app.UseRouting();
 
+            if (!app.Environment.IsDevelopment())
+                app.UseMiddleware<CustomExceptionHandlerMiddleWare>();
+
             app.UseAuthentication();
             app.UseAuthorization();
+
+
 
             app.MapRazorPages();
             app.MapControllerRoute(
