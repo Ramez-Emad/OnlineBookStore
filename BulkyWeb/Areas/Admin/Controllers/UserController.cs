@@ -19,6 +19,7 @@ namespace BulkyWeb.Areas.Admin.Controllers
 
         public IActionResult Index()
         {
+
             return View();
         }
 
