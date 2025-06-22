@@ -124,30 +124,22 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
             public string State { get; set; }
             public string PostalCode { get; set; }
             public int? CompanyId { get; set; }
+            public string PhoneNumber { get; set; } = null!;
         }
 
 
         public async Task OnGetAsync(string returnUrl = null)
         {
-            if (!_roleManager.RoleExistsAsync(SD.Role_Customer).GetAwaiter().GetResult())
-            {
-                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Customer));
-                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Employee));
-                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
-                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Company));
-
-            }
-
             Input = new InputModel()
             {
                 RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name }),
 
-                //CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
-                //                                            .Select(c => new SelectListItem
-                //                                            {
-                //                                                Text = c.Name,
-                //                                                Value = c.Id.ToString()
-                //                                            }).ToList()
+                CompanyList =( await  _unitOfWork.CompanyRepository.GetAllAsync())
+                                                            .Select(c => new SelectListItem
+                                                            {
+                                                                Text = c.Name,
+                                                                Value = c.Id.ToString()
+                                                            }).ToList()
             };
 
             ReturnUrl = returnUrl;
@@ -164,12 +156,17 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
-                user.Name = Input.Name;
-                user.CompanyId = Input.CompanyId;
-                user.StreetAddress = Input.StreetAddress;
+
                 user.City = Input.City;
+                user.Name = Input.Name;
                 user.State = Input.State;
                 user.PostalCode = Input.PostalCode;
+                user.PhoneNumber = Input.PhoneNumber;
+
+                if (Input.Role == SD.Role_Company)
+                {
+                    user.CompanyId = Input.CompanyId;
+                }
 
 
                 var result = await _userManager.CreateAsync(user, Input.Password);
@@ -202,7 +199,14 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
                     }
                     else
                     {
-                        await _signInManager.SignInAsync(user, isPersistent: false);
+                        if (User.IsInRole(SD.Role_Admin))
+                        {
+                            TempData["success"] = "New User Created Successfully";
+                        }
+                        else
+                        {
+                            await _signInManager.SignInAsync(user, isPersistent: false);
+                        }
                         return LocalRedirect(returnUrl);
                     }
                 }
@@ -214,12 +218,12 @@ namespace BulkyWeb.Areas.Identity.Pages.Account
 
             Input.RoleList = _roleManager.Roles.Select(r => new SelectListItem() { Text = r.Name, Value = r.Name });
 
-            //Input.CompanyList = _unitOfWork.GetRepository<Company>().GetAll()
-            //                                               .Select(c => new SelectListItem
-            //                                               {
-            //                                                   Text = c.Name,
-            //                                                   Value = c.Id.ToString()
-            //                                               }).ToList();
+            Input.CompanyList = (await _unitOfWork.CompanyRepository.GetAllAsync())
+                                                            .Select(c => new SelectListItem
+                                                            {
+                                                                Text = c.Name,
+                                                                Value = c.Id.ToString()
+                                                            }).ToList();
 
             // If we got this far, something failed, redisplay form
             return Page();

@@ -16,5 +16,8 @@ namespace Bulky.DataAccess.Entities
         [ForeignKey("CompanyId")]
         [ValidateNever]
         public Company? Company { get; set; } = default!;
+
+        [NotMapped]
+        public string Role { get; set; } = default!;
     }
 }

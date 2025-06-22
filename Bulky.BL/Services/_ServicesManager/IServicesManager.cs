@@ -6,6 +6,7 @@ using Bulky.BL.Services.Categories;
 using Bulky.BL.Services.Companies;
 using Bulky.BL.Services.Orders;
 using Bulky.BL.Services.Products;
+using Bulky.BL.Services.Users;
 using Bulky.DataAccess.Repository.Companies;
 
 namespace Bulky.BL.Services._ServicesManager
@@ -19,8 +20,9 @@ namespace Bulky.BL.Services._ServicesManager
         ICompanyService  CompanyService { get; }
         IOrderServices OrderServices { get; }
         ICartServices CartServices { get; }
-
         IPaymentService PaymentService { get; }
-        
+        IUserService UserService { get; }
+
+
     }
 }

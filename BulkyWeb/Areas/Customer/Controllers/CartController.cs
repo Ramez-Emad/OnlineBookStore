@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.Blazor;
 using Stripe;
 using Stripe.Checkout;
+using Stripe.Issuing;
 using System.Security.Claims;
 
 namespace BulkyWeb.Areas.Customer.Controllers
@@ -50,6 +51,9 @@ namespace BulkyWeb.Areas.Customer.Controllers
                 var product = await _servicesManager.ProductService.GetProductByIdAsync(Id);
                 if (product != null)
                     await _servicesManager.CartServices.DecrementProductInUserCart(cart, product);
+
+                HttpContext.Session.SetInt32("CartCount", cart.Items.Count());
+
             }
 
             return RedirectToAction("Index");
@@ -75,7 +79,11 @@ namespace BulkyWeb.Areas.Customer.Controllers
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId!);
 
-            await _servicesManager.CartServices.DeleteProductFromUserCart(cart, Id);
+            if (cart != null)
+           {
+                await _servicesManager.CartServices.DeleteProductFromUserCart(cart, Id);
+                HttpContext.Session.SetInt32("CartCount", cart.Items.Count());
+            }
 
             return RedirectToAction("Index");
         }
@@ -198,6 +206,7 @@ namespace BulkyWeb.Areas.Customer.Controllers
 
             }
             await _servicesManager.CartServices.DeleteUserCartAsync(orderHeader.ApplicationUserId);
+            HttpContext.Session.SetInt32("CartCount", 0);
             return View(id);
         }
 

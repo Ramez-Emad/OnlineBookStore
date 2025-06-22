@@ -26,6 +26,16 @@ namespace BulkyWeb.Areas.Customer.Controllers
         {
 
             var productList = await _servicesManager.ProductService.GetAllProductsAsync();
+            string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId != null)
+            {
+                var cart = await _servicesManager.CartServices.GetCartByUserIdAsync(userId!);
+                if (cart != null)
+                {
+                    HttpContext.Session.SetInt32("CartCount", cart.Items.Count());
+                }
+            }
+
             return View(productList);
         }
 
@@ -54,6 +64,9 @@ namespace BulkyWeb.Areas.Customer.Controllers
             var product = await _servicesManager.ProductService.GetProductByIdAsync(productId);
 
             await _servicesManager.CartServices.CreateOrUpdateUserCartAsync(product!, quantity, cart);
+
+            HttpContext.Session.SetInt32("CartCount", cart.Items.Count());
+
 
             return RedirectToAction("Index");
         }

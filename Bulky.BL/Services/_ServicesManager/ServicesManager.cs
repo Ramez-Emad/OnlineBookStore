@@ -6,12 +6,13 @@ using Bulky.BL.Services.Categories;
 using Bulky.BL.Services.Companies;
 using Bulky.BL.Services.Orders;
 using Bulky.BL.Services.Products;
+using Bulky.BL.Services.Users;
 using Bulky.DataAccess.Repository.UnitOfWork.UnitOfWork;
 using StackExchange.Redis;
 
 namespace Bulky.BL.Services._ServicesManager
 {
-    public class ServicesManager(IUnitOfWork _unitOfWork, IMapper _mapper, IAttachmentService _attachmentService ) : IServicesManager
+    public class ServicesManager(IUnitOfWork _unitOfWork, IMapper _mapper, IAttachmentService _attachmentService) : IServicesManager
     {
 
         private IProductService? _productService;
@@ -50,5 +51,9 @@ namespace Bulky.BL.Services._ServicesManager
 
         private IPaymentService? _paymentService;
         public IPaymentService PaymentService => _paymentService ??= new PaymentService(OrderServices);
+
+        private IUserService? _userService;
+
+        public IUserService UserService => _userService ??= new UserService(_unitOfWork);
     }
 }

@@ -16,6 +16,7 @@ using Bulky.DataAccess.UnitOfWork.UnitOfWork.UnitOfWork;
 using Bulky.BL.Profiles;
 using Bulky.BL.Services._ServicesManager;
 using BulkyWeb.CustomMiddleWares;
+using Bulky.DataAccess.DbInitializer;
 
 namespace BulkyWeb
 {
@@ -36,7 +37,13 @@ namespace BulkyWeb
 
             builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 
-            builder.Services.AddIdentity<ApplicationUser , IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultUI().AddDefaultTokenProviders();
+            builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+            {
+                options.SignIn.RequireConfirmedAccount = false; 
+            })
+            .AddEntityFrameworkStores<ApplicationDbContext>()
+            .AddDefaultUI().
+            AddDefaultTokenProviders();
 
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -45,11 +52,30 @@ namespace BulkyWeb
             builder.Services.AddScoped<ICartRepository, CartRepository>();
             builder.Services.AddScoped<IServicesManager , ServicesManager>();
             builder.Services.AddAutoMapper(M => M.AddProfile(new MappingProfiles()));
+            builder.Services.AddScoped<IDbInitializer, DbInitializer>();
 
 
             builder.Services.AddSingleton<IConnectionMultiplexer>((_) =>
             {
-                return ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("RedisConnectionString"));
+                return ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("RedisConnectionString")!);
+            });
+
+            builder.Services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = builder.Configuration.GetConnectionString("RedisConnectionString");
+                options.InstanceName = "BulkySession_";
+            });
+
+            builder.Services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.IsEssential = true;
+            });
+
+            builder.Services.AddAuthentication().AddFacebook(option => {
+                option.AppId = "1096951718512953";
+                option.AppSecret = "54ed0d60b4f576196a40d83dfd656adc";
             });
 
             var app = builder.Build();
@@ -72,8 +98,13 @@ namespace BulkyWeb
 
             app.UseAuthentication();
             app.UseAuthorization();
+            app.UseSession();
 
-
+            using ( var scope = app.Services.CreateScope())
+            {
+                var dbInitializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
+                dbInitializer.Initialize();
+            }
 
             app.MapRazorPages();
             app.MapControllerRoute(

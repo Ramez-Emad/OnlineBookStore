@@ -4,6 +4,7 @@ using Bulky.DataAccess.Repository.Companies;
 using Bulky.DataAccess.Repository.Orders;
 using Bulky.DataAccess.Repository.Products;
 using Bulky.DataAccess.Repository.UnitOfWork.UnitOfWork;
+using Bulky.DataAccess.Repository.Users;
 using BulkyWeb.Data;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -56,6 +57,9 @@ namespace Bulky.DataAccess.UnitOfWork.UnitOfWork.UnitOfWork
         private IOrderDetailRepository? _orderDetailRepository;
 
         public IOrderDetailRepository OrderDetailRepository => _orderDetailRepository ?? new OrderDetailRepository(_dbContext);
+
+        private IUserRepository? _userRepository;
+        public IUserRepository UserRepository => _userRepository ?? new UserRepository(_dbContext);
         public async Task<int> SaveChangesAsync() => await _dbContext.SaveChangesAsync();
 
     }
